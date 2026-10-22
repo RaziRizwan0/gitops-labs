@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: gitops-dev
+resources:
+  - ../../base
+images:
+  - name: gitops-labs
+    newName: raziriz/gitops-labs
+    newTag: bootstrap
+commonLabels:
+  app.kubernetes.io/part-of: gitops-labs
+  app.kubernetes.io/environment: dev

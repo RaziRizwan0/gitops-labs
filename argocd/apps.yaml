@@ -1,0 +1,41 @@
+# Replace RaziRizwan0 with your GitHub account before applying.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata: {name: gitops-labs-dev, namespace: argocd}
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/RaziRizwan0/gitops-labs.git
+    targetRevision: dev
+    path: k8s/overlays/dev
+  destination: {server: https://kubernetes.default.svc, namespace: gitops-dev}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata: {name: gitops-labs-staging, namespace: argocd}
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/RaziRizwan0/gitops-labs.git
+    targetRevision: staging
+    path: k8s/overlays/staging
+  destination: {server: https://kubernetes.default.svc, namespace: gitops-staging}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata: {name: gitops-labs-production, namespace: argocd}
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/RaziRizwan0/gitops-labs.git
+    targetRevision: main
+    path: k8s/overlays/production
+  destination: {server: https://kubernetes.default.svc, namespace: gitops-production}
+  syncPolicy:
+    syncOptions: [CreateNamespace=true]

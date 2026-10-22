@@ -1,0 +1,76 @@
+name: GitOps Labs CI/CD
+on:
+  push:
+    branches: [dev, staging, main]
+    paths: ['app.py', 'requirements.txt', 'Dockerfile', '.dockerignore', 'tests/**', '.github/workflows/ci-cd.yaml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: gitops-labs-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test-build-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout
+      - name: Set image metadata
+        id: meta
+        shell: bash
+        run: |
+          SHA="${GITHUB_SHA::12}"
+          case "${GITHUB_REF_NAME}" in
+            dev) echo "TAG=dev-${SHA}" >> "$GITHUB_OUTPUT"; echo "OVERLAY=k8s/overlays/dev/kustomization.yaml" >> "$GITHUB_OUTPUT"; echo "ENV=dev" >> "$GITHUB_OUTPUT" ;;
+            staging) echo "TAG=staging-${SHA}" >> "$GITHUB_OUTPUT"; echo "OVERLAY=k8s/overlays/staging/kustomization.yaml" >> "$GITHUB_OUTPUT"; echo "ENV=staging" >> "$GITHUB_OUTPUT" ;;
+            main) echo "TAG=prod-${SHA}" >> "$GITHUB_OUTPUT"; echo "OVERLAY=k8s/overlays/production/kustomization.yaml" >> "$GITHUB_OUTPUT"; echo "ENV=production" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unsupported branch ${GITHUB_REF_NAME}" >&2; exit 1 ;;
+          esac
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install dependencies and run tests
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m unittest discover -s tests -v
+      - uses: docker/setup-buildx-action@v3
+        name: Set up Docker Buildx
+      - uses: docker/login-action@v3
+        name: Login to Docker Hub
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        name: Build and push image
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/gitops-labs:${{ steps.meta.outputs.TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Update Kustomize image tag
+        env:
+          OVERLAY: ${{ steps.meta.outputs.OVERLAY }}
+          TAG: ${{ steps.meta.outputs.TAG }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          python - <<'PY'
+          import os, re
+          path=os.environ['OVERLAY']; username=os.environ['DOCKERHUB_USERNAME']; tag=os.environ['TAG']
+          content=open(path, encoding='utf-8').read()
+          content=content.replace('YOUR_DOCKERHUB_USERNAME/gitops-labs', f'{username}/gitops-labs')
+          content, count=re.subn(r'(?m)^(\s*newTag:\s*).+$', rf'\g<1>{tag}', content)
+          if count != 1: raise SystemExit(f'Expected one newTag in {path}; found {count}')
+          open(path,'w',encoding='utf-8').write(content)
+          PY
+      - name: Commit GitOps manifest change
+        env:
+          OVERLAY: ${{ steps.meta.outputs.OVERLAY }}
+          ENVIRONMENT: ${{ steps.meta.outputs.ENV }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$OVERLAY"
+          if git diff --cached --quiet; then echo 'No manifest changes to commit.'; exit 0; fi
+          git commit -m "ci(${ENVIRONMENT}): deploy ${GITHUB_SHA::12}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
