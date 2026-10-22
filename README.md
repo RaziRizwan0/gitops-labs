@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # GitOps Labs
 
 A portfolio-oriented GitOps delivery project using Flask, Docker, GitHub Actions, Kubernetes/Minikube, Kustomize, and Argo CD.
@@ -175,3 +176,6 @@ Add Trivy image scanning, CodeQL/static analysis, Prometheus/Grafana metrics and
 ## Important limitations
 
 This is a learning/portfolio project, not production-ready infrastructure. SQLite with one `ReadWriteOnce` PVC and one replica is intentionally simple; do not scale it to multiple replicas. Minikube is not highly available. Pin GitHub Actions to full commit SHAs and review permissions for stronger supply-chain security before calling this production-grade.
+=======
+# gitops-labs
+>>>>>>> 3399afc1d30d64e1b52faffabc77fc0b321498f1
