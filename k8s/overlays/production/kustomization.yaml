@@ -6,7 +6,7 @@ resources:
 images:
   - name: gitops-labs
     newName: raziriz/gitops-labs
-    newTag: bootstrap
+    newTag: prod-325397aeff9a
 commonLabels:
   app.kubernetes.io/part-of: gitops-labs
   app.kubernetes.io/environment: production
